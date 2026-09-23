@@ -1,7 +1,8 @@
 # PantaDesk — Institutional Prediction Market Terminal on Solana
 
 > **Colosseum Crypto World's Fair Hackathon — Panta API Sidetrack Submission**  
-> *A high-throughput intelligence, risk modeling, and trade execution terminal built natively on Solana using Panta Public API v1.*
+> *A high-throughput intelligence, risk modeling, and trade execution terminal built natively on Solana using Panta Public API v1.*  
+> **Live Terminal**: [https://pantadesk.vercel.app](https://pantadesk.vercel.app)
 
 ---
 
