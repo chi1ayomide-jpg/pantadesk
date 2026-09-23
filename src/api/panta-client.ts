@@ -16,10 +16,16 @@ import { estimateTradeOutput } from '../domain/odds/odds-math';
 export type LogListener = (event: PantaApiLogEvent) => void;
 
 export class PantaClient {
-  private baseUrl = 'https://live-api.panta.market/api/v1';
   private apiKey: string | null = null;
   private logListeners: Set<LogListener> = new Set();
   private marketsCache: PantaMarket[] = [...DEMO_MARKETS];
+
+  private getBaseUrl(): string {
+    if (typeof window !== 'undefined') {
+      return '/panta-proxy';
+    }
+    return 'https://live-api.panta.market/api/v1';
+  }
 
   constructor(apiKey?: string) {
     if (apiKey) this.apiKey = apiKey;
@@ -55,15 +61,19 @@ export class PantaClient {
 
     if (this.apiKey) {
       headers['X-Api-Key'] = this.apiKey;
+      headers['Authorization'] = this.apiKey.startsWith('Bearer ')
+        ? this.apiKey
+        : `Bearer ${this.apiKey}`;
     }
 
-    const fullUrl = `${this.baseUrl}${endpoint.endsWith('/') ? endpoint : endpoint + '/'}`;
+    const fullUrl = `${this.getBaseUrl()}${endpoint.endsWith('/') ? endpoint : endpoint + '/'}`;
     const method = (options.method || 'GET') as PantaApiLogEvent['method'];
+    let logEmitted = false;
 
     try {
       if (!this.apiKey) {
-        // When no API key is provided, we simulate response seamlessly from demo cache
-        // but log the event so the developer console shows the exact Panta interaction!
+        // When in Sandbox mode (no judge API key provided), we simulate response seamlessly from demo cache
+        // but log the event so the Developer Console shows the exact Panta interaction!
         await new Promise(r => setTimeout(r, 60)); // realistic latency
         const latencyMs = Math.round(performance.now() - startTime);
 
@@ -75,8 +85,9 @@ export class PantaClient {
           status: 200,
           latencyMs,
           requestPayload: options.body ? JSON.parse(options.body as string) : undefined,
-          responsePayload: { simulated: true }
+          responsePayload: { simulated: true, mode: 'SANDBOX' }
         });
+        logEmitted = true;
 
         return null as unknown as T;
       }
@@ -87,7 +98,12 @@ export class PantaClient {
       });
 
       const latencyMs = Math.round(performance.now() - startTime);
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        data = { status: res.status, statusText: res.statusText };
+      }
 
       this.emitLog({
         id: Math.random().toString(36).substring(7),
@@ -99,6 +115,7 @@ export class PantaClient {
         requestPayload: options.body ? JSON.parse(options.body as string) : undefined,
         responsePayload: data
       });
+      logEmitted = true;
 
       if (!res.ok) {
         throw new Error(data.message || `Panta API error ${res.status}: ${data.code || 'UNKNOWN'}`);
@@ -106,17 +123,19 @@ export class PantaClient {
 
       return data as T;
     } catch (err: any) {
-      const latencyMs = Math.round(performance.now() - startTime);
-      this.emitLog({
-        id: Math.random().toString(36).substring(7),
-        timestamp: new Date().toISOString(),
-        method,
-        endpoint,
-        status: 500,
-        latencyMs,
-        requestPayload: options.body ? JSON.parse(options.body as string) : undefined,
-        responsePayload: { error: err.message }
-      });
+      if (!logEmitted) {
+        const latencyMs = Math.round(performance.now() - startTime);
+        this.emitLog({
+          id: Math.random().toString(36).substring(7),
+          timestamp: new Date().toISOString(),
+          method,
+          endpoint,
+          status: 500,
+          latencyMs,
+          requestPayload: options.body ? JSON.parse(options.body as string) : undefined,
+          responsePayload: { error: err.message }
+        });
+      }
       throw err;
     }
   }

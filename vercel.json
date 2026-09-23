@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/panta-proxy/:path*",
+      "destination": "https://live-api.panta.market/api/v1/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

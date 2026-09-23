@@ -58,4 +58,18 @@ describe('Panta Public API Client SDK', () => {
 
     unsubscribe();
   });
+
+  it('supports judge live API key injection and telemetry tracking', async () => {
+    const client = new PantaClient('pk_live_judge_evaluation_key_2026');
+    expect(client.getApiKey()).toBe('pk_live_judge_evaluation_key_2026');
+
+    const logs: any[] = [];
+    client.onLog(e => logs.push(e));
+
+    // When an invalid key is provided to live endpoint, client catches non-ok status and falls back safely
+    const markets = await client.listMarkets();
+    expect(markets.length).toBeGreaterThan(0);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs[0].endpoint).toContain('/markets/');
+  });
 });
